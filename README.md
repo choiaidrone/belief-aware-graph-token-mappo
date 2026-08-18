@@ -371,8 +371,7 @@ The final journal citation and software DOI will be added after publication and 
 
 ## License
 
-License information will be added before the public release of this repository.
-
+This project is released under the MIT License. See [LICENSE](LICENSE) for details.
 ---
 
 ## Acknowledgment
