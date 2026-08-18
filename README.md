@@ -177,25 +177,38 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 
 ## Training
 
+The main Graph-Token MAPPO and GAT-MAPPO policies are trained in the
+4-UAV / 20-target scenario for **3,000 episodes** using seed 0.
+
 ### Main Graph-Token MAPPO
-
-```bash
-python graph_token_mappo_v13.py
-```
-
-Training options such as stage, random seed, and output directory can be specified through the command-line arguments provided by the script.
-
-For example:
 
 ```bash
 python graph_token_mappo_v13.py --stage 1 --seed 0
 ```
 
-### Multi-seed training
+The default Stage-1 training budget is 3,000 episodes.
+
+A different training budget can be specified explicitly using:
+
+```bash
+python graph_token_mappo_v13.py --stage 1 --seed 0 --episodes 1500
+```
+
+### Main GAT-MAPPO baseline
+
+```bash
+python gat_mappo_v13.py --stage 1 --seed 0
+```
+
+### Multi-seed robustness training
 
 ```bash
 python run_seed_training_all.py
 ```
+
+This script trains Graph-Token MAPPO and GAT-MAPPO independently with
+five training seeds (`0--4`) using a matched reduced budget of
+**1,500 episodes per policy**.
 
 ### Active-track token-budget sensitivity
 
@@ -203,20 +216,37 @@ python run_seed_training_all.py
 python run_kslot_training_all.py
 ```
 
-This trains the `K=8`, `K=12`, and `K=16` Graph-Token MAPPO variants using the matched sensitivity-analysis configuration.
+This script separately trains the `K=8`, `K=12`, and `K=16`
+Graph-Token MAPPO variants using seed 0 and a matched budget of
+**1,500 episodes per variant**.
 
 ---
 
 ## Evaluation
 
 Pretrained checkpoints are not stored directly in this GitHub repository.
+They will be distributed separately as an archived release.
 
-Checkpoint paths can be specified using the corresponding command-line options of each evaluation script.
+Evaluation scripts support explicit checkpoint paths through their
+corresponding command-line options.
 
 ### Main scalability evaluation
 
+The main evaluation uses 100 stochastic episodes for each of the
+`4x20`, `8x40`, and `12x60` scenarios.
+
+If the models were trained using the default repository structure,
+the evaluation script automatically searches the seed-0 checkpoint
+directories.
+
 ```bash
-python eval_v13_scale_all.py
+python eval_v13_scale_all.py --n_eval 100
+```
+
+Alternatively, checkpoint files can be specified explicitly:
+
+```bash
+python eval_v13_scale_all.py --n_eval 100 --ckpt_gat "/path/to/gat_checkpoint.pt" --ckpt_graph_token "/path/to/graph_token_checkpoint.pt"
 ```
 
 ### Ablation study
@@ -224,6 +254,10 @@ python eval_v13_scale_all.py
 ```bash
 python eval_v13_ablation.py
 ```
+
+The `w/o graph`, `w/o fused priority`, and `w/o active-track`
+checkpoints can also be specified explicitly through the corresponding
+`--ckpt_wo_*` options.
 
 ### Tracker ablation
 
@@ -249,28 +283,34 @@ python eval_v13_beta_sensitivity.py
 python eval_v13_density_stress.py
 ```
 
-### Multi-seed robustness
+### Multi-seed robustness evaluation
 
 ```bash
-python eval_seed_robustness_all.py
+python eval_seed_robustness_all.py --episodes 100 --checkpoint_ep 1500 --device cuda --seeds 0 1 2 3 4
 ```
+
+This evaluation treats each independently trained policy as the
+statistical unit. Each of the five Graph-Token MAPPO and five GAT-MAPPO
+policies is evaluated over 100 matched stochastic evaluation episodes.
 
 ### Active-track token-budget sensitivity
 
 ```bash
-python eval_kslot_sensitivity_all.py \
-    --episodes 100 \
-    --ks 8 12 16 \
-    --scales 12x60
+python eval_kslot_sensitivity_all.py --episodes 100 --checkpoint_ep 1500 --device cuda --ks 8 12 16 --scales 12x60
 ```
 
-Use:
+This evaluates the separately trained `K=8`, `K=12`, and `K=16`
+variants over 100 matched stochastic evaluation episodes in the
+12-UAV / 60-target scenario.
+
+Use
 
 ```bash
 python <script_name>.py --help
 ```
 
-to inspect the available checkpoint, output-directory, seed, and evaluation options.
+to inspect additional checkpoint, output-directory, scale, seed,
+and evaluation options.
 
 ---
 
@@ -292,13 +332,23 @@ A permanent archive link and DOI will be added after the archived release is dep
 
 ## Reproducibility Notes
 
-The main reported evaluation results use stochastic evaluation episodes under fixed trained checkpoints.
+The main Graph-Token MAPPO and GAT-MAPPO checkpoints are trained for
+3,000 episodes using seed 0.
 
-Independent training-seed robustness is evaluated separately, where the **independently trained policy** is treated as the statistical unit.
+The independent training-seed robustness experiment uses a matched
+reduced training budget of 1,500 episodes for each of five seeds per
+learning method. Statistical comparisons in this experiment use the
+independently trained policy as the statistical unit.
 
-The active-track token-budget experiment is a fixed-checkpoint sensitivity diagnostic using separately trained `K=8`, `K=12`, and `K=16` variants.
+The active-track token-budget sensitivity experiment separately trains
+the `K=8`, `K=12`, and `K=16` variants for 1,500 episodes using seed 0.
+This experiment is interpreted as a fixed-checkpoint sensitivity
+diagnostic rather than an estimate of training-run variability.
 
-> **Legacy note:** `token_ppo_v3.py` is retained for the Token-MAPPO (`w/o graph`) ablation model definition and inference. Its legacy standalone v12 training entry point is not part of the reproduction workflow provided in this repository.
+> **Legacy note:** `token_ppo_v3.py` is retained for the Token-MAPPO
+> (`w/o graph`) ablation model definition and inference. Its legacy
+> standalone v12 training entry point is not part of the reproduction
+> workflow provided in this repository.
 
 ---
 
