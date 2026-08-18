@@ -48,6 +48,7 @@ def run_one(job, seed):
         "--stage", "1",
         "--seed", str(seed),
         "--save_dir", str(save_dir),
+        "--episodes", "1500",
     ]
 
     print("=" * 80)

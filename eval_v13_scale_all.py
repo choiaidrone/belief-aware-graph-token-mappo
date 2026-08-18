@@ -71,8 +71,8 @@ SCALE_CONFIGS = {
 # 저장된 경우에만 자동으로 찾는다. 다른 위치의 checkpoint는 --ckpt_gat /
 # --ckpt_graph_token 으로 명시적으로 지정한다.)
 CKPT_DIRS = {
-    "gat":         str(REPO_ROOT / "gat_paper" / "stage1"),
-    "graph_token": str(REPO_ROOT / "graph_token_mappo_v13" / "stage1"),
+    "gat":         str(REPO_ROOT / "gat_paper" / "stage1" / "seed0"),
+    "graph_token": str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0"),
 }
 CKPT_PREFIXES = {
     "gat":         "gat_paper_ep",

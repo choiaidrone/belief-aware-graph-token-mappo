@@ -63,7 +63,7 @@ SCALE_CONFIGS = {
 # Graph-Token policy는 고정 — variant 비교 대상이 아니므로 ckpt 1개만 사용
 # (실제 checkpoint는 repo에 포함되지 않음; training을 이 repo 안에서 실행했다면
 #  자동으로 찾고, 아니면 --ckpt_graph_token 으로 명시적으로 지정한다.)
-CKPT_DIR    = str(REPO_ROOT / "graph_token_mappo_v13" / "stage1")
+CKPT_DIR    = str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0")
 CKPT_PREFIX = "graph_token_ep"
 
 TRACKER_METHODS = ["raw", "kf", "imm"]

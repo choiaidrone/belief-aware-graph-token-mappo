@@ -102,7 +102,7 @@ SCALE_CONFIGS = {
 
 # Full Proposed checkpoint 고정 — variant끼리 비교 대상이 아니므로 ckpt 1개만 사용
 # (실제 checkpoint는 repo에 포함되지 않음; --ckpt_graph_token 으로 명시 지정 가능)
-CKPT_DIR    = str(REPO_ROOT / "graph_token_mappo_v13" / "stage1")
+CKPT_DIR    = str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0")
 CKPT_PREFIX = "graph_token_ep"
 
 MASK_METHODS = ["full", "wo_trp", "wo_age", "wo_trp_age", "wo_fused", "wo_all_belief"]

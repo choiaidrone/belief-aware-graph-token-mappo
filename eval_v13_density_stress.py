@@ -80,8 +80,8 @@ SCALE_CONFIGS = {
 # 기본 체크포인트 경로 (--ckpt_XXX 미지정 시 자동 탐색; 실제 checkpoint는
 # repo에 포함되지 않음)
 CKPT_DIRS = {
-    "gat":         str(REPO_ROOT / "gat_paper" / "stage1"),
-    "graph_token": str(REPO_ROOT / "graph_token_mappo_v13" / "stage1"),
+    "gat":         str(REPO_ROOT / "gat_paper" / "stage1" / "seed0"),
+    "graph_token": str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0"),
 }
 CKPT_PREFIXES = {
     "gat":         "gat_paper_ep",

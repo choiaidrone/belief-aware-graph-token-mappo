@@ -221,7 +221,7 @@ class TrainConfig:
 class CurriculumConfig:
     stage         : int = 1
     base_save_dir : str = str(REPO_ROOT / "graph_token_mappo_v13")
-    stage_episodes: dict = field(default_factory=lambda: {1:1500, 2:2000, 3:2000})
+    stage_episodes: dict = field(default_factory=lambda: {1:3000, 2:2000, 3:2000})
     stage_goals   : dict = field(default_factory=lambda: {
         1: {"metric":"uncertainty_pct","threshold":20.0,"window":50,"direction":"below"},
         2: {"metric":"terrain_hits",   "threshold":5.0, "window":50,"direction":"below"},
@@ -1880,6 +1880,10 @@ def main():
     parser.add_argument("--stage",     type=int, default=1)
     parser.add_argument("--save_dir",  type=str, default=None)
     parser.add_argument("--seed",      type=int, default=0)
+    parser.add_argument("--episodes",  type=int, default=None,
+                         help="stage_episodes[stage] override (e.g. 1500 for "
+                              "reduced-budget robustness training). "
+                              "기본값 None이면 CurriculumConfig의 기존 값을 사용.")
     args = parser.parse_args()
 
     cur_cfg   = CurriculumConfig(stage=args.stage)
@@ -1887,6 +1891,8 @@ def main():
     train_cfg.seed = args.seed
     if args.save_dir:
         cur_cfg.base_save_dir = args.save_dir
+    if args.episodes is not None:
+        cur_cfg.stage_episodes[args.stage] = args.episodes
 
     train_stage(args.stage, cur_cfg=cur_cfg, train_cfg=train_cfg)
 
