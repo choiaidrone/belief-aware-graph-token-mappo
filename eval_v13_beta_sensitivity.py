@@ -61,7 +61,13 @@ SCALE_CONFIGS = {
 # --ckpt_b00/--ckpt_b05/--ckpt_b10 으로 명시 지정 가능)
 CKPT_DIRS = {
     "b00": str(REPO_ROOT / "graph_token_beta0_v13" / "stage1"),
-    "b05": str(REPO_ROOT / "graph_token_mappo_v13" / "stage1"),
+    # b05 = main Graph-Token MAPPO checkpoint 재사용. 후보 경로를 순서대로
+    # 검사: 1) 현재 학습 layout(stage1/seed0/) 2) 논문 원본 checkpoint
+    # layout(seed 폴더 없음, stage1/). seed1~seed4를 뒤섞어 찾지 않는다.
+    "b05": [
+        str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0"),
+        str(REPO_ROOT / "graph_token_mappo_v13" / "stage1"),
+    ],
     "b10": str(REPO_ROOT / "graph_token_beta1_v13" / "stage1"),
 }
 CKPT_PREFIXES = {
@@ -141,18 +147,25 @@ def _get_done_eps(out_path):
     except Exception: pass
     return done
 
-def find_latest_ckpt(folder, prefix):
-    if not os.path.isdir(folder): return None
-    pts = [f for f in os.listdir(folder)
-           if f.startswith(prefix) and f.endswith(".pt")]
-    if not pts: return None
-    def _ep(f):
-        try: return int(f.replace(prefix, "").replace(".pt", ""))
-        except: return -1
-    pts.sort(key=_ep)
-    path = os.path.join(folder, pts[-1])
-    print(f"  [자동 탐색] {path}")
-    return path
+def find_latest_ckpt(folders, prefix):
+    # folders: 단일 경로(str) 또는 후보 경로 list. 순서대로 첫 번째로
+    # prefix*.pt 가 존재하는 디렉터리를 사용한다 (여러 layout을 recursive로
+    # 섞어 찾지 않고, 후보 디렉터리 단위로만 순서대로 검사).
+    if isinstance(folders, (str, os.PathLike)):
+        folders = [folders]
+    for folder in folders:
+        if not os.path.isdir(folder): continue
+        pts = [f for f in os.listdir(folder)
+               if f.startswith(prefix) and f.endswith(".pt")]
+        if not pts: continue
+        def _ep(f):
+            try: return int(f.replace(prefix, "").replace(".pt", ""))
+            except: return -1
+        pts.sort(key=_ep)
+        path = os.path.join(folder, pts[-1])
+        print(f"  [자동 탐색] {path}")
+        return path
+    return None
 
 
 # ── v13 환경 생성 (Isaac/omni 불필요) ──────────────────────────────

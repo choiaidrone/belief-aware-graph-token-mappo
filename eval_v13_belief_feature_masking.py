@@ -102,7 +102,13 @@ SCALE_CONFIGS = {
 
 # Full Proposed checkpoint 고정 — variant끼리 비교 대상이 아니므로 ckpt 1개만 사용
 # (실제 checkpoint는 repo에 포함되지 않음; --ckpt_graph_token 으로 명시 지정 가능)
-CKPT_DIR    = str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0")
+# 후보 경로를 순서대로 검사: 1) 현재 학습 layout(stage1/seed0/) 2) 논문 원본
+# checkpoint layout(seed 폴더 없음, Zenodo 배포본 등, stage1/). seed1~seed4를
+# 뒤섞어 찾지 않도록 두 layout을 recursive 없이 순서대로만 검사한다.
+CKPT_DIR    = [
+    str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0"),
+    str(REPO_ROOT / "graph_token_mappo_v13" / "stage1"),
+]
 CKPT_PREFIX = "graph_token_ep"
 
 MASK_METHODS = ["full", "wo_trp", "wo_age", "wo_trp_age", "wo_fused", "wo_all_belief"]
@@ -177,18 +183,25 @@ def _get_done_eps(out_path):
     except Exception: pass
     return done
 
-def find_latest_ckpt(folder, prefix):
-    if not os.path.isdir(folder): return None
-    pts = [f for f in os.listdir(folder)
-           if f.startswith(prefix) and f.endswith(".pt")]
-    if not pts: return None
-    def _ep(f):
-        try: return int(f.replace(prefix, "").replace(".pt", ""))
-        except: return -1
-    pts.sort(key=_ep)
-    path = os.path.join(folder, pts[-1])
-    print(f"  [자동 탐색] {path}")
-    return path
+def find_latest_ckpt(folders, prefix):
+    # folders: 단일 경로(str) 또는 후보 경로 list. 순서대로 첫 번째로
+    # prefix*.pt 가 존재하는 디렉터리를 사용한다 (여러 layout을 recursive로
+    # 섞어 찾지 않고, 후보 디렉터리 단위로만 순서대로 검사).
+    if isinstance(folders, (str, os.PathLike)):
+        folders = [folders]
+    for folder in folders:
+        if not os.path.isdir(folder): continue
+        pts = [f for f in os.listdir(folder)
+               if f.startswith(prefix) and f.endswith(".pt")]
+        if not pts: continue
+        def _ep(f):
+            try: return int(f.replace(prefix, "").replace(".pt", ""))
+            except: return -1
+        pts.sort(key=_ep)
+        path = os.path.join(folder, pts[-1])
+        print(f"  [자동 탐색] {path}")
+        return path
+    return None
 
 def _make_env_v13(num_drones, num_targets, k_active):
     import isaac_env_v13 as env_module

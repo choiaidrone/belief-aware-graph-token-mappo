@@ -80,8 +80,18 @@ SCALE_CONFIGS = {
 # 기본 체크포인트 경로 (--ckpt_XXX 미지정 시 자동 탐색; 실제 checkpoint는
 # repo에 포함되지 않음)
 CKPT_DIRS = {
-    "gat":         str(REPO_ROOT / "gat_paper" / "stage1" / "seed0"),
-    "graph_token": str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0"),
+    # 후보 경로를 순서대로 검사 (앞에서부터 첫 매치 사용):
+    #   1) 현재 학습 스크립트가 만드는 layout: stage1/seed0/
+    #   2) 논문 원본 checkpoint layout(seed 폴더 없음, Zenodo 배포본 등): stage1/
+    # seed1~seed4를 뒤섞어 찾지 않도록 두 layout을 recursive 없이 순서대로만 검사한다.
+    "gat": [
+        str(REPO_ROOT / "gat_paper" / "stage1" / "seed0"),
+        str(REPO_ROOT / "gat_paper" / "stage1"),
+    ],
+    "graph_token": [
+        str(REPO_ROOT / "graph_token_mappo_v13" / "stage1" / "seed0"),
+        str(REPO_ROOT / "graph_token_mappo_v13" / "stage1"),
+    ],
 }
 CKPT_PREFIXES = {
     "gat":         "gat_paper_ep",
@@ -159,18 +169,25 @@ def _get_done_eps(out_path):
     except Exception: pass
     return done
 
-def find_latest_ckpt(folder, prefix):
-    if not os.path.isdir(folder): return None
-    pts = [f for f in os.listdir(folder)
-           if f.startswith(prefix) and f.endswith(".pt")]
-    if not pts: return None
-    def _ep(f):
-        try: return int(f.replace(prefix, "").replace(".pt", ""))
-        except: return -1
-    pts.sort(key=_ep)
-    path = os.path.join(folder, pts[-1])
-    print(f"  [자동 탐색] {path}")
-    return path
+def find_latest_ckpt(folders, prefix):
+    # folders: 단일 경로(str) 또는 후보 경로 list. 순서대로 첫 번째로
+    # prefix*.pt 가 존재하는 디렉터리를 사용한다 (여러 layout을 recursive로
+    # 섞어 찾지 않고, 후보 디렉터리 단위로만 순서대로 검사).
+    if isinstance(folders, (str, os.PathLike)):
+        folders = [folders]
+    for folder in folders:
+        if not os.path.isdir(folder): continue
+        pts = [f for f in os.listdir(folder)
+               if f.startswith(prefix) and f.endswith(".pt")]
+        if not pts: continue
+        def _ep(f):
+            try: return int(f.replace(prefix, "").replace(".pt", ""))
+            except: return -1
+        pts.sort(key=_ep)
+        path = os.path.join(folder, pts[-1])
+        print(f"  [자동 탐색] {path}")
+        return path
+    return None
 
 
 # ── v13 환경 생성 (Isaac/omni 불필요) ──────────────────────────────
