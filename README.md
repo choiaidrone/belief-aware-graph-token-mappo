@@ -68,16 +68,16 @@ The policy is trained using MAPPO with CTDE.
 
 The simulator contains four target classes: **infantry, tank, artillery, and anti-air**.
 
-The current experiments treat **anti-air only as a target category**. Active anti-air threat effects on UAV survival, routing, or reward are disabled in the reported experiments (`ANTIAIR_KILL_PENALTY = 0.0`).
+The reported experiments treat **anti-air only as a stationary target category**. Active anti-air threat and shoot-down effects are disabled by setting `ANTIAIR_P_MAX = 0.0`; the legacy threat hook is retained only for interface compatibility.
 
-The target-belief tracker uses target-dependent motion-model sets:
+The target-belief tracker uses target-dependent motion models:
 
 - Tank: Constant Velocity (CV) + Coordinated Turn (CT)
 - Artillery: Static + Slow-CV
 - Infantry: Static + Slow-CV
-- Anti-air: Static + Slow-CV in the current implementation
+- Anti-air: Static Kalman filter
 
-These model sets and transition probabilities are fixed motion priors rather than learned parameters.
+These motion models and transition probabilities are fixed priors rather than learned parameters.
 
 ---
 
@@ -220,7 +220,6 @@ The reported Stage-1 reward configuration is:
 | Stale-track penalty weight | 0.01 |
 | Reacquisition reward weight | 0.5 |
 | Inter-UAV collision penalty | -1.0 |
-| Anti-air kill penalty | 0.0 |
 
 A different training budget can be specified explicitly using:
 
