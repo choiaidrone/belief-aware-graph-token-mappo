@@ -1,15 +1,13 @@
 cff-version: 1.2.0
-message: "If you use this software in your research, please cite it using the metadata below."
+message: "If you use this software in your research, please cite the associated manuscript and this repository."
 
-title: "Belief-Aware Graph-Token MAPPO for Mission-Level Decision-Making in Multi-UAV Search and Persistent Tracking"
+title: "BSR-MAPPO: Belief-Aware Structured-Relational Multi-Agent Proximal Policy Optimization for Multi-UAV Search and Persistent Target Tracking"
 
 authors:
   - family-names: "Choi"
     given-names: "Yeongseok"
-
   - family-names: "Choi"
     given-names: "Jongeun"
 
 repository-code: "https://github.com/choiaidrone/belief-aware-graph-token-mappo"
-
 type: software
