@@ -76,8 +76,10 @@ BATTERY_COST_TRACK   = 0.0002
 BATTERY_SAFETY_FACTOR = 1.3
 BASE_ARRIVAL_DIST    = 5.0
 
+# Reported experiments treat anti-air as a stationary target class only.
+# The legacy threat hook is retained for interface compatibility but disabled.
 ANTIAIR_KILL_RADIUS  = 10.0
-ANTIAIR_P_MAX        = 0.02
+ANTIAIR_P_MAX        = 0.0
 ANTIAIR_KILL_PENALTY = 0.0
 
 DEPTH_MAX_RANGE = 30.0
