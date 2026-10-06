@@ -1,7 +1,7 @@
-# Belief-Aware Graph-Token MAPPO for Multi-UAV Search and Persistent Tracking
+# BSR-MAPPO for Multi-UAV Search and Persistent Target Tracking
 
 <p align="center">
-  <b>Mission-Level Decision-Making for Simultaneous Search and Persistent Target Tracking</b>
+  <b>Belief-Aware Structured-Relational Multi-Agent Proximal Policy Optimization</b>
 </p>
 
 <p align="center">
@@ -24,20 +24,23 @@
 
 ## Overview
 
-This repository provides the official implementation of **Belief-Aware Graph-Token MAPPO**, a multi-agent reinforcement learning framework for simultaneous multi-UAV area search and persistent target tracking.
+This repository provides the official implementation of **BSR-MAPPO (Belief-Aware Structured-Relational Multi-Agent Proximal Policy Optimization)** for simultaneous multi-UAV area search and persistent target tracking.
 
-The framework focuses on **mission-level decision making** rather than low-level flight control. Each UAV decides how to balance spatial exploration with the maintenance and reacquisition of previously detected targets.
+The framework focuses on **mission-level decision making** rather than low-level flight control. Each UAV must balance reduction of spatial uncertainty with maintenance and reacquisition of previously detected target beliefs.
 
-The proposed method combines:
+The implementation was originally developed under the internal name **Graph-Token MAPPO**. For reproducibility, legacy filenames such as `graph_token_mappo_v13.py` are retained, while **BSR-MAPPO** is used as the method name in the journal manuscript and documentation.
+
+The proposed framework combines:
 
 - Dempster--Shafer (DS) spatial uncertainty representation
-- IMM-KF target state and uncertainty estimation
-- Belief-aware active-track tokens
+- Interacting Multiple Model Kalman Filter (IMM-KF) target-state and belief estimation
+- Belief-aware active-track tokens containing target state, normalized covariance trace, and track age
 - Uncertainty--belief fused priority maps
-- Structured graph-token observations
-- Multi-Agent Proximal Policy Optimization (MAPPO) under CTDE
+- Structured UAV, zone, active-track, and global tokens
+- A local graph branch for relational coordination
+- Multi-Agent Proximal Policy Optimization (MAPPO) under centralized training and decentralized execution (CTDE)
 
-The main configuration uses **12 active-track slots (`K=12`)**.
+The main configuration uses **12 active-track slots (`K=12`)** and fusion weight **`beta=0.5`**.
 
 ---
 
@@ -47,15 +50,34 @@ The main configuration uses **12 active-track slots (`K=12`)**.
   <img src="assets/framework.png" width="900">
 </p>
 
-The environment maintains two complementary belief representations.
+The environment maintains two complementary information states.
 
-**Spatial uncertainty** describes how reliable the team's knowledge of previously searched regions remains over time.
+**Spatial belief** is represented with a Dempster--Shafer map. Empty evidence, target evidence, and uncertainty are maintained separately, and temporal decay gradually increases uncertainty in regions that have not been observed recently.
 
-**Target belief** is maintained using an Interacting Multiple Model Kalman Filter (IMM-KF), which estimates target position, velocity, covariance, and track age during intermittent observations.
+**Target belief** is maintained with an IMM-KF. The tracker estimates target position, velocity, covariance, and track age during intermittent observation. The full covariance matrix is maintained internally by the estimator, while its normalized trace is exposed to the mission-level policy as a compact belief-quality feature.
 
-These representations are fused and provided to the policy through structured UAV, zone, active-track, and global tokens. A graph branch additionally represents local relationships among UAVs.
+The policy receives four structured token types: **UAV**, **zone**, **active-track**, and **global** tokens. A graph branch additionally represents local relational information around each UAV.
 
-The policy is trained using MAPPO with centralized training and decentralized execution.
+The global tracker maintains all target beliefs. Only the highest-priority `K` active tracks are exposed to the actor at each step; omitted tracks are not deleted and can re-enter the active-track set when their priority increases.
+
+The policy is trained using MAPPO with CTDE.
+
+---
+
+## Target Classes and Motion Models
+
+The simulator contains four target classes: **infantry, tank, artillery, and anti-air**.
+
+The current experiments treat **anti-air only as a target category**. Active anti-air threat effects on UAV survival, routing, or reward are disabled in the reported experiments (`ANTIAIR_KILL_PENALTY = 0.0`).
+
+The target-belief tracker uses target-dependent motion-model sets:
+
+- Tank: Constant Velocity (CV) + Coordinated Turn (CT)
+- Artillery: Static + Slow-CV
+- Infantry: Static + Slow-CV
+- Anti-air: Static + Slow-CV in the current implementation
+
+These model sets and transition probabilities are fixed motion priors rather than learned parameters.
 
 ---
 
@@ -69,13 +91,15 @@ The main experiments evaluate fixed UAV-to-target ratios at three mission scales
 | Medium | 8 | 40 |
 | Large | 12 | 60 |
 
+The main policies are trained at `4 UAV / 20 targets` and evaluated at all three scales without retraining.
+
 Additional experiments include:
 
 - Independent multi-seed robustness evaluation
-- Target-density stress testing
+- Target-density stress testing with 8 UAVs and 20--120 targets
 - Component ablation studies
 - Belief-feature masking
-- IMM-KF tracker analysis
+- IMM-KF tracker diagnostics
 - Fused-priority sensitivity analysis
 - Active-track token-budget sensitivity (`K = 8, 12, 16`)
 - Computational-cost analysis
@@ -84,14 +108,14 @@ Additional experiments include:
 
 ## Key Result
 
-In the largest `12 UAV / 60 target` scenario, Graph-Token MAPPO provides stronger persistent target-belief maintenance than GAT-MAPPO under the selected main checkpoints.
+In the largest `12 UAV / 60 target` scenario, BSR-MAPPO provides stronger persistent target-belief maintenance than GAT-MAPPO under the selected main checkpoints, although GAT-MAPPO has a slightly lower terminal covariance and slightly lower final map uncertainty.
 
-| Method | Mean tr(P) ↓ | Avg. Committed ↑ | Avg. Stale ↓ |
-|---|---:|---:|---:|
-| GAT-MAPPO | 0.0279 ± 0.0067 | 0.872 ± 0.037 | 0.120 ± 0.037 |
-| **Graph-Token MAPPO** | **0.0253 ± 0.0059** | **0.920 ± 0.036** | **0.074 ± 0.036** |
+| Method | Final mean tr(P) ↓ | Time-avg. mean tr(P) ↓ | Committed Ratio ↑ | Stale Ratio ↓ | Final Uncertainty (%) ↓ |
+|---|---:|---:|---:|---:|---:|
+| GAT-MAPPO | **0.3099 ± 0.1071** | 0.2843 ± 0.0354 | 0.872 ± 0.037 | 0.120 ± 0.037 | **27.25 ± 4.79** |
+| **BSR-MAPPO** | 0.3365 ± 0.1033 | **0.2307 ± 0.0418** | **0.920 ± 0.036** | **0.074 ± 0.036** | 27.88 ± 5.23 |
 
-The results indicate that explicitly exposing target-belief quality to the policy improves persistent tracking while maintaining competitive spatial search performance.
+These results should be interpreted jointly. BSR-MAPPO does not dominate every terminal search or covariance metric; its advantage is most consistent in **trajectory-wide belief quality and target-maintenance state**.
 
 <p align="center">
   <img src="assets/scalability_results.png" width="900">
@@ -105,7 +129,7 @@ The results indicate that explicitly exposing target-belief quality to the polic
 belief-aware-graph-token-mappo/
 │
 ├── isaac_env_v13.py
-├── graph_token_mappo_v13.py
+├── graph_token_mappo_v13.py        # BSR-MAPPO implementation (legacy filename)
 ├── gat_mappo_v13.py
 ├── gat_obs_wrapper_v13.py
 ├── token_ppo_v3.py
@@ -177,16 +201,26 @@ python -c "import torch; print(torch.__version__); print(torch.cuda.is_available
 
 ## Training
 
-The main Graph-Token MAPPO and GAT-MAPPO policies are trained in the
-4-UAV / 20-target scenario for **3,000 episodes** using seed 0.
+The main BSR-MAPPO and GAT-MAPPO policies are trained in the `4 UAV / 20 target` scenario for **3,000 episodes** using seed 0.
 
-### Main Graph-Token MAPPO
+### Main BSR-MAPPO
 
 ```bash
 python graph_token_mappo_v13.py --stage 1 --seed 0
 ```
 
-The default Stage-1 training budget is 3,000 episodes.
+The public implementation retains the legacy `graph_token_*` filenames for checkpoint and script compatibility.
+
+The reported Stage-1 reward configuration is:
+
+| Parameter | Value |
+|---|---:|
+| Uncertainty-reduction weight | 1.5 |
+| Target-belief maintenance weight | 0.3 |
+| Stale-track penalty weight | 0.01 |
+| Reacquisition reward weight | 0.5 |
+| Inter-UAV collision penalty | -1.0 |
+| Anti-air kill penalty | 0.0 |
 
 A different training budget can be specified explicitly using:
 
@@ -206,9 +240,7 @@ python gat_mappo_v13.py --stage 1 --seed 0
 python run_seed_training_all.py
 ```
 
-This script trains Graph-Token MAPPO and GAT-MAPPO independently with
-five training seeds (`0--4`) using a matched reduced budget of
-**1,500 episodes per policy**.
+This script trains BSR-MAPPO and GAT-MAPPO independently with five training seeds (`0--4`) using a matched reduced budget of **1,500 episodes per policy**.
 
 ### Active-track token-budget sensitivity
 
@@ -216,37 +248,28 @@ five training seeds (`0--4`) using a matched reduced budget of
 python run_kslot_training_all.py
 ```
 
-This script separately trains the `K=8`, `K=12`, and `K=16`
-Graph-Token MAPPO variants using seed 0 and a matched budget of
-**1,500 episodes per variant**.
+This script separately trains the `K=8`, `K=12`, and `K=16` BSR-MAPPO variants using seed 0 and a matched budget of **1,500 episodes per variant**.
 
 ---
 
 ## Evaluation
 
-Pretrained checkpoints are not stored directly in this GitHub repository.
-They will be distributed separately as an archived release.
+Unless otherwise stated, the main scalability and target-density results are reported as **mean ± one standard deviation over 100 stochastic evaluation episodes from a fixed trained checkpoint**. These error bars characterize episode-level stochasticity, not variation across independently trained policies.
 
-Evaluation scripts support explicit checkpoint paths through their
-corresponding command-line options.
+Training-run variability is assessed separately in the five-seed robustness experiment.
 
 ### Main scalability evaluation
-
-The main evaluation uses 100 stochastic episodes for each of the
-`4x20`, `8x40`, and `12x60` scenarios.
-
-If the models were trained using the default repository structure,
-the evaluation script automatically searches the seed-0 checkpoint
-directories.
 
 ```bash
 python eval_v13_scale_all.py --n_eval 100
 ```
 
-Alternatively, checkpoint files can be specified explicitly:
+The main evaluation covers `4x20`, `8x40`, and `12x60` without retraining.
+
+Explicit checkpoint paths can also be provided:
 
 ```bash
-python eval_v13_scale_all.py --n_eval 100 --ckpt_gat "/path/to/gat_checkpoint.pt" --ckpt_graph_token "/path/to/graph_token_checkpoint.pt"
+python eval_v13_scale_all.py --n_eval 100 --ckpt_gat "/path/to/gat_checkpoint.pt" --ckpt_graph_token "/path/to/bsr_checkpoint.pt"
 ```
 
 ### Ablation study
@@ -255,11 +278,7 @@ python eval_v13_scale_all.py --n_eval 100 --ckpt_gat "/path/to/gat_checkpoint.pt
 python eval_v13_ablation.py
 ```
 
-The `w/o graph`, `w/o fused priority`, and `w/o active-track`
-checkpoints can also be specified explicitly through the corresponding
-`--ckpt_wo_*` options.
-
-### Tracker ablation
+### Tracker diagnostic
 
 ```bash
 python eval_v13_tracker_ablation.py
@@ -289,19 +308,15 @@ python eval_v13_density_stress.py
 python eval_seed_robustness_all.py --episodes 100 --checkpoint_ep 1500 --device cuda --seeds 0 1 2 3 4
 ```
 
-This evaluation treats each independently trained policy as the
-statistical unit. Each of the five Graph-Token MAPPO and five GAT-MAPPO
-policies is evaluated over 100 matched stochastic evaluation episodes.
+Each independently trained policy is the statistical unit. Each of the five BSR-MAPPO and five GAT-MAPPO policies is evaluated over 100 matched stochastic evaluation episodes. Episode-level values are first averaged within each checkpoint before across-training-run statistics are calculated.
 
 ### Active-track token-budget sensitivity
 
 ```bash
-python eval_kslot_sensitivity_all.py --episodes 100 --checkpoint_ep 1500 --device cuda --ks 8 12 16 --scales 12x60
+python eval_kslot_sensitivity_all.py --episodes 100 --checkpoint_ep 1500 --device cuda --ks 8 12 16 --scales 4x20 8x40 12x60
 ```
 
-This evaluates the separately trained `K=8`, `K=12`, and `K=16`
-variants over 100 matched stochastic evaluation episodes in the
-12-UAV / 60-target scenario.
+This evaluates the separately trained `K=8`, `K=12`, and `K=16` variants at all three mission scales.
 
 Use
 
@@ -309,71 +324,62 @@ Use
 python <script_name>.py --help
 ```
 
-to inspect additional checkpoint, output-directory, scale, seed,
-and evaluation options.
+to inspect additional checkpoint, output-directory, scale, seed, and evaluation options.
 
 ---
 
 ## Pretrained Checkpoints
 
-Pretrained checkpoints will be distributed separately from the source-code repository.
+Pretrained checkpoints are not stored directly in this GitHub source repository.
 
-The planned release includes checkpoints for:
+The archived checkpoint package is intended to include:
 
-- Main Graph-Token MAPPO
-- Main GAT-MAPPO baseline
+- Main BSR-MAPPO checkpoint
+- Main GAT-MAPPO baseline checkpoint
 - Independent robustness seeds
 - `K=8`, `K=12`, and `K=16` sensitivity variants
 - Selected ablation configurations
 
-A permanent archive link and DOI will be added after the archived release is deposited.
+The permanent archive/DOI should be cited here once the archived release is finalized.
 
 ---
 
 ## Reproducibility Notes
 
-The main Graph-Token MAPPO and GAT-MAPPO checkpoints are trained for
-3,000 episodes using seed 0.
+The main BSR-MAPPO and GAT-MAPPO checkpoints are trained for **3,000 episodes using seed 0**.
 
-The independent training-seed robustness experiment uses a matched
-reduced training budget of 1,500 episodes for each of five seeds per
-learning method. Statistical comparisons in this experiment use the
-independently trained policy as the statistical unit.
+The independent training-seed robustness experiment uses a matched reduced training budget of **1,500 episodes for each of five seeds per learning method**. Statistical comparisons in this experiment use the independently trained policy as the statistical unit.
 
-The active-track token-budget sensitivity experiment separately trains
-the `K=8`, `K=12`, and `K=16` variants for 1,500 episodes using seed 0.
-This experiment is interpreted as a fixed-checkpoint sensitivity
-diagnostic rather than an estimate of training-run variability.
+The active-track token-budget sensitivity experiment separately trains the `K=8`, `K=12`, and `K=16` variants for **1,500 episodes using seed 0**.
 
-> **Legacy note:** `token_ppo_v3.py` is retained for the Token-MAPPO
-> (`w/o graph`) ablation model definition and inference. Its legacy
-> standalone v12 training entry point is not part of the reproduction
-> workflow provided in this repository.
+> **Legacy filename note:** `graph_token_mappo_v13.py` implements the method referred to as BSR-MAPPO in the journal manuscript. The legacy filename is retained to preserve compatibility with existing checkpoints and evaluation scripts.
+
+> **Legacy ablation note:** `token_ppo_v3.py` is retained for the Token-MAPPO (`w/o graph`) ablation model definition and inference. Its legacy standalone v12 training entry point is not part of the reproduction workflow provided in this repository.
 
 ---
 
 ## Citation
 
-If you use this repository in your research, please cite the associated paper.
+If you use this repository in your research, please cite the associated manuscript and software repository.
 
 ```bibtex
-@article{choi2026beliefaware,
-  title   = {Belief-Aware Graph-Token MAPPO for Mission-Level Decision-Making
-             in Multi-UAV Search and Persistent Tracking},
+@article{choi2026bsrmappo,
+  title   = {BSR-MAPPO: Belief-Aware Structured-Relational Multi-Agent Proximal Policy Optimization for Multi-UAV Search and Persistent Target Tracking},
   author  = {Choi, Yeongseok and Choi, Jongeun},
   year    = {2026}
 }
 ```
 
-The final journal citation and software DOI will be added after publication and archival release.
+The final Robotics and Autonomous Systems citation and software DOI will be added after publication and archival release.
 
 ---
 
 ## License
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for details.
+
 ---
 
 ## Acknowledgment
 
-This repository accompanies the research implementation of Belief-Aware Graph-Token MAPPO for multi-UAV search and persistent target tracking.
+This repository accompanies the BSR-MAPPO research implementation for multi-UAV search and persistent target tracking.
